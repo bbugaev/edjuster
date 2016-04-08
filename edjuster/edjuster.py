@@ -3,7 +3,17 @@
 import os.path as path
 
 import click
+import numpy as np
 from scipy.ndimage import imread
+
+
+def load_file(folder, filename, hint, loader):
+    filename = path.join(folder, filename)
+    try:
+        result = loader(filename)
+    except IOError:
+        raise click.FileError(filename, hint)
+    return result
 
 
 @click.command()
@@ -11,11 +21,10 @@ from scipy.ndimage import imread
 def edjust(input_folder):
     """Adjusts pose of 3D object"""
 
-    image_path = path.join(input_folder, 'image.bmp')
-    try:
-        image = imread(image_path)
-    except IOError:
-        raise click.FileError(image_path, '3D object image')
+    image = load_file(input_folder, 'image.bmp', '3D object image', imread)
+    model = load_file(input_folder, 'model.txt', 'model matrix', np.loadtxt)
+    view = load_file(input_folder, 'view.txt', 'view matrix', np.loadtxt)
+    proj = load_file(input_folder, 'proj.txt', 'proj matrix', np.loadtxt)
 
 
 if __name__ == '__main__':
