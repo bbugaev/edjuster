@@ -1,2 +1,5 @@
 click
+numpy
+Pillow
 prospector
+scipy
