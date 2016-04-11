@@ -2,4 +2,5 @@ click
 numpy
 Pillow
 prospector
+pyassimp
 scipy
