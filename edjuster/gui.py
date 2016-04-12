@@ -21,19 +21,32 @@ def _create_qimage(image):
 
 
 class Drawer(QtOpenGL.QGLWidget):
+    WIREFRAME_COLOR = np.array([0.0, 1.0, 0.0])
 
-    def __init__(self, image):
+    def __init__(self, image, mesh, model, view, proj):
         QtOpenGL.QGLWidget.__init__(self)
         self.setWindowTitle(self.tr(WINDOW_TITLE))
 
         self._call_list = []
         self._texture_id = 0
         self._image = _create_qimage(image)
+        self._mesh = mesh
+        self._model = model
+        self._view = view
+        self._proj = proj
 
     def initializeGL(self):
-        GL.glClearColor(0, 0, 0, 0)
         self._texture_id = self.bindTexture(self._image)
         self._init_call_list()
+
+        GL.glClearColor(0, 0, 0, 0)
+        GL.glClearDepth(1)
+        GL.glEnable(GL.GL_BLEND)
+        GL.glEnable(GL.GL_LINE_SMOOTH)
+        GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
+        GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+        GL.glFrontFace(GL.GL_CCW)
+        GL.glCullFace(GL.GL_BACK)
 
     def resizeGL(self, window_width, window_height):
         coef = min(1.0,
@@ -49,25 +62,11 @@ class Drawer(QtOpenGL.QGLWidget):
                       viewport_height)
 
     def paintGL(self):
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-        self._draw_texture()
-        GL.glCallList(self._call_list)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+        self._draw_image()
+        self._draw_mesh()
 
-    def _init_call_list(self):
-        self._call_list = GL.glGenLists(1)
-        GL.glNewList(self._call_list, GL.GL_COMPILE)
-
-        self.qglColor(QtCore.Qt.green)
-        GL.glBegin(GL.GL_POLYGON)
-        GL.glVertex2d(0.0, 0.0)
-        GL.glVertex2d(0.0, 0.5)
-        GL.glVertex2d(0.5, 0.5)
-        GL.glVertex2d(0.5, 0.0)
-        GL.glEnd()
-
-        GL.glEndList()
-
-    def _draw_texture(self):
+    def _draw_image(self):
         GL.glMatrixMode(GL.GL_PROJECTION)
         GL.glLoadIdentity()
         GL.glOrtho(-0.5, 0.5, 0.5, -0.5, -0.5, 0.5)
@@ -77,8 +76,47 @@ class Drawer(QtOpenGL.QGLWidget):
         self.qglColor(QtCore.Qt.white)
         self.drawTexture(QtCore.QRectF(-0.5, -0.5, 1, 1), self._texture_id)
 
+    def _draw_mesh(self):
+        GL.glMatrixMode(GL.GL_PROJECTION)
+        GL.glLoadMatrixd(self._proj.T)
+        GL.glMatrixMode(GL.GL_MODELVIEW)
+        GL.glLoadMatrixd(self._view.dot(self._model).T)
 
-def run_gui(argv, image):
+        GL.glEnable(GL.GL_CULL_FACE)
+        GL.glEnable(GL.GL_DEPTH_TEST)
+
+        GL.glColorMask(GL.GL_FALSE, GL.GL_FALSE, GL.GL_FALSE, GL.GL_FALSE)
+        GL.glEnable(GL.GL_POLYGON_OFFSET_FILL)
+        GL.glPolygonOffset(1, 1)
+        GL.glColor4d(1, 1, 1, 1)
+        GL.glCallList(self._call_list)
+        GL.glDisable(GL.GL_POLYGON_OFFSET_FILL)
+        GL.glColorMask(GL.GL_TRUE, GL.GL_TRUE, GL.GL_TRUE, GL.GL_TRUE)
+
+        GL.glDepthMask(GL.GL_FALSE)
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
+        GL.glColor3dv(Drawer.WIREFRAME_COLOR)
+        GL.glCallList(self._call_list)
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+        GL.glDepthMask(GL.GL_TRUE)
+
+        GL.glDisable(GL.GL_DEPTH_TEST)
+        GL.glDisable(GL.GL_CULL_FACE)
+
+    def _init_call_list(self):
+        self._call_list = GL.glGenLists(1)
+        GL.glNewList(self._call_list, GL.GL_COMPILE)
+
+        for face in self._mesh.faces:
+            GL.glBegin(GL.GL_POLYGON)
+            for vertex in self._mesh.vertices[face]:
+                GL.glVertex3dv(vertex)
+            GL.glEnd()
+
+        GL.glEndList()
+
+
+def run_gui(argv, image, mesh, model, view, proj):
     app = QtGui.QApplication(argv)
 
     if not QtOpenGL.QGLFormat.hasOpenGL():
@@ -86,7 +124,7 @@ def run_gui(argv, image):
                                    'This system does not support OpenGL')
         return 1
 
-    window = Drawer(image)
+    window = Drawer(image, mesh, model, view, proj)
     window.resize(800, 600)
     window.show()
 

@@ -28,13 +28,13 @@ def edjust(ctx, input_folder):
 
     mesh = load_file(input_folder, 'mesh.obj', '3D object', load_mesh)
 
-    image = load_file(input_folder, 'image.bmp', '3D object image', imread)
+    image = load_file(input_folder, 'image.png', '3D object image', imread)
 
     model = load_file(input_folder, 'model.txt', 'model matrix', np.loadtxt)
     view = load_file(input_folder, 'view.txt', 'view matrix', np.loadtxt)
     proj = load_file(input_folder, 'proj.txt', 'proj matrix', np.loadtxt)
 
-    ctx.exit(run_gui(sys.argv[:1], image))
+    ctx.exit(run_gui(sys.argv[:1], image, mesh, model, view, proj))
 
 
 if __name__ == '__main__':
