@@ -23,17 +23,14 @@ def _create_qimage(image):
 class Drawer(QtOpenGL.QGLWidget):
     WIREFRAME_COLOR = np.array([0.0, 1.0, 0.0])
 
-    def __init__(self, image, mesh, model, view, proj):
+    def __init__(self, image, scene):
         QtOpenGL.QGLWidget.__init__(self)
         self.setWindowTitle(self.tr(WINDOW_TITLE))
 
         self._call_list = []
         self._texture_id = 0
         self._image = _create_qimage(image)
-        self._mesh = mesh
-        self._model = model
-        self._view = view
-        self._proj = proj
+        self._scene = scene
 
     def initializeGL(self):
         self._texture_id = self.bindTexture(self._image)
@@ -78,9 +75,10 @@ class Drawer(QtOpenGL.QGLWidget):
 
     def _draw_mesh(self):
         GL.glMatrixMode(GL.GL_PROJECTION)
-        GL.glLoadMatrixd(self._proj.T)
+        GL.glLoadMatrixd(self._scene.proj.T)
         GL.glMatrixMode(GL.GL_MODELVIEW)
-        GL.glLoadMatrixd(self._view.dot(self._model).T)
+        model_view = self._scene.view.dot(self._scene.model).T
+        GL.glLoadMatrixd(model_view)
 
         GL.glEnable(GL.GL_CULL_FACE)
         GL.glEnable(GL.GL_DEPTH_TEST)
@@ -107,16 +105,16 @@ class Drawer(QtOpenGL.QGLWidget):
         self._call_list = GL.glGenLists(1)
         GL.glNewList(self._call_list, GL.GL_COMPILE)
 
-        for face in self._mesh.faces:
+        for face in self._scene.mesh.faces:
             GL.glBegin(GL.GL_POLYGON)
-            for vertex in self._mesh.vertices[face]:
+            for vertex in self._scene.mesh.vertices[face]:
                 GL.glVertex3dv(vertex)
             GL.glEnd()
 
         GL.glEndList()
 
 
-def run_gui(argv, image, mesh, model, view, proj):
+def run_gui(argv, image, scene):
     app = QtGui.QApplication(argv)
 
     if not QtOpenGL.QGLFormat.hasOpenGL():
@@ -124,7 +122,7 @@ def run_gui(argv, image, mesh, model, view, proj):
                                    'This system does not support OpenGL')
         return 1
 
-    window = Drawer(image, mesh, model, view, proj)
+    window = Drawer(image, scene)
     window.resize(800, 600)
     window.show()
 

@@ -7,7 +7,7 @@ import click
 import numpy as np
 from scipy.ndimage import imread
 
-from geometry import load_mesh
+from geometry import load_mesh, Scene
 from gui import run_gui
 
 
@@ -34,7 +34,7 @@ def edjust(ctx, input_folder):
     view = load_file(input_folder, 'view.txt', 'view matrix', np.loadtxt)
     proj = load_file(input_folder, 'proj.txt', 'proj matrix', np.loadtxt)
 
-    ctx.exit(run_gui(sys.argv[:1], image, mesh, model, view, proj))
+    ctx.exit(run_gui(sys.argv[:1], image, Scene(mesh, model, view, proj)))
 
 
 if __name__ == '__main__':

@@ -5,6 +5,7 @@ import pyassimp
 
 
 Mesh = namedtuple('Mesh', ('vertices', 'faces'))
+Scene = namedtuple('Scene', ('mesh', 'model', 'view', 'proj'))
 
 
 def _make_vector_array(vector):
