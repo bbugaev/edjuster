@@ -34,7 +34,7 @@ def edjust(ctx, input_folder):
     view = load_file(input_folder, 'view.txt', 'view matrix', np.loadtxt)
     proj = load_file(input_folder, 'proj.txt', 'proj matrix', np.loadtxt)
 
-    ctx.exit(run_gui(sys.argv[:1]))
+    ctx.exit(run_gui(sys.argv[:1], image))
 
 
 if __name__ == '__main__':
