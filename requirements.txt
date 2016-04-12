@@ -3,4 +3,6 @@ numpy
 Pillow
 prospector
 pyassimp
+PyOpenGL
+PySide
 scipy
