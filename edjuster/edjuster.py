@@ -24,7 +24,7 @@ def load_file(folder, filename, hint, loader):
 @click.argument('input_folder', type=click.Path(exists=True, file_okay=False))
 @click.pass_context
 def edjust(ctx, input_folder):
-    """Adjusts pose of 3D object"""
+    """Adjust pose of 3D object"""
 
     mesh = load_file(input_folder, 'mesh.obj', '3D object', load_mesh)
 
