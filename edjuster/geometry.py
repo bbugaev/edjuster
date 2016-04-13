@@ -1,7 +1,8 @@
-from collections import namedtuple
 
 import numpy as np
 import pyassimp
+from pyassimp.postprocess import aiProcess_JoinIdenticalVertices
+from pyassimp.postprocess import aiProcess_Triangulate
 
 
 Mesh = namedtuple('Mesh', ('vertices', 'faces'))
@@ -17,8 +18,13 @@ def _make_face_array(face):
 
 
 def load_mesh(filename):
+    """Load mesh from file and triangulate it"""
+
     try:
-        scene = pyassimp.load(filename)
+        scene = pyassimp.load(
+            filename,
+            processing=aiProcess_JoinIdenticalVertices | aiProcess_Triangulate
+        )
     except pyassimp.AssimpError as error:
         raise IOError(error.message)
 
