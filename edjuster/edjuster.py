@@ -38,7 +38,7 @@ def edjust(ctx, input_folder):
     image, scene = load_input(input_folder)
     borders, sharp_edges = detect_mesh_edges(scene)
 
-    ctx.exit(run_gui(sys.argv[:1], image, scene))
+    ctx.exit(run_gui(sys.argv[:1], image, scene, borders, sharp_edges))
 
 
 if __name__ == '__main__':
