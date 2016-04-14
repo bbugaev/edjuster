@@ -36,9 +36,9 @@ def edjust(ctx, input_folder):
     """Adjust pose of 3D object"""
 
     image, scene = load_input(input_folder)
-    borders, sharp_edges = detect_mesh_edges(scene)
+    mesh_edges = detect_mesh_edges(scene)
 
-    ctx.exit(run_gui(sys.argv[:1], image, scene, borders, sharp_edges))
+    ctx.exit(run_gui(sys.argv[:1], image, scene, mesh_edges))
 
 
 if __name__ == '__main__':

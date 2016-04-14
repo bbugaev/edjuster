@@ -8,6 +8,8 @@ from pyassimp.postprocess import aiProcess_Triangulate
 
 Mesh = namedtuple('Mesh', ('vertices', 'faces'))
 Scene = namedtuple('Scene', ('mesh', 'model', 'view', 'proj'))
+MeshEdges = namedtuple('MeshEdges',
+                       ('projected_vertices', 'borders', 'sharp_edges'))
 
 
 def _make_vector_array(vector):
@@ -98,4 +100,8 @@ def detect_mesh_edges(scene):
             if angle_between_normals >= np.math.pi / 2:
                 sharp_edges.append(edge)
 
-    return np.array(borders), np.array(sharp_edges)
+    return MeshEdges(
+        vertices[:, :-1],
+        np.array(borders),
+        np.array(sharp_edges)
+    )
