@@ -22,8 +22,10 @@ def _create_qimage(image):
 
 class Drawer(QtOpenGL.QGLWidget):
     WIREFRAME_COLOR = np.array([0.0, 1.0, 0.0])
+    BORDER_COLOR = np.array([1.0, 0.0, 1.0])
+    SHARP_EDGE_COLOR = np.array([1.0, 1.0, 0.0])
 
-    def __init__(self, image, scene):
+    def __init__(self, image, scene, mesh_edges):
         QtOpenGL.QGLWidget.__init__(self)
         self.setWindowTitle(self.tr(WINDOW_TITLE))
 
@@ -31,6 +33,7 @@ class Drawer(QtOpenGL.QGLWidget):
         self._texture_id = 0
         self._image = _create_qimage(image)
         self._scene = scene
+        self._mesh_edges = mesh_edges
 
     def initializeGL(self):
         self._texture_id = self.bindTexture(self._image)
@@ -101,6 +104,17 @@ class Drawer(QtOpenGL.QGLWidget):
         GL.glDisable(GL.GL_DEPTH_TEST)
         GL.glDisable(GL.GL_CULL_FACE)
 
+        self._draw_edges(self._mesh_edges.borders, Drawer.BORDER_COLOR)
+        self._draw_edges(self._mesh_edges.sharp_edges, Drawer.SHARP_EDGE_COLOR)
+
+    def _draw_edges(self, edges, color):
+        GL.glColor3dv(color)
+        GL.glBegin(GL.GL_LINES)
+        for line in edges:
+            for vertex in self._scene.mesh.vertices[line]:
+                GL.glVertex3dv(vertex)
+        GL.glEnd()
+
     def _init_call_list(self):
         self._call_list = GL.glGenLists(1)
         GL.glNewList(self._call_list, GL.GL_COMPILE)
@@ -114,7 +128,7 @@ class Drawer(QtOpenGL.QGLWidget):
         GL.glEndList()
 
 
-def run_gui(argv, image, scene):
+def run_gui(argv, image, scene, mesh_edges):
     app = QtGui.QApplication(argv)
 
     if not QtOpenGL.QGLFormat.hasOpenGL():
@@ -122,7 +136,7 @@ def run_gui(argv, image, scene):
                                    'This system does not support OpenGL')
         return 1
 
-    window = Drawer(image, scene)
+    window = Drawer(image, scene, mesh_edges)
     window.resize(800, 600)
     window.show()
 
