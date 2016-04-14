@@ -42,13 +42,20 @@ def load_mesh(filename):
     return Mesh(vertices, faces)
 
 
-def _get_projected_vertices(scene):
+def convert_to_format(points, image_size):
+    points = points + np.array([1, 1])
+    points *= np.array([image_size[1], image_size[0]]) / 2.0
+    return points
+
+
+def _get_projected_vertices(scene, image_size):
     """Return projected vertices of given scene in homogeneous coordinates"""
     mvp = scene.proj.dot(scene.view.dot(scene.model))
     vertices = np.insert(scene.mesh.vertices, 3, 1, axis=1)
     vertices = np.dot(vertices, mvp.T)
     vertices /= vertices[:, -1:]
-    vertices = np.insert(vertices[:, :2], 2, 1, axis=1)
+    vertices = convert_to_format(vertices[:, :2], image_size)
+    vertices = np.insert(vertices, 2, 1, axis=1)
     return vertices
 
 
@@ -77,9 +84,9 @@ def _calc_normal(triangle):
     return normal
 
 
-def detect_mesh_edges(scene):
+def detect_mesh_edges(scene, image_size):
     edge_faces = _calc_faces_of_edges(scene.mesh)
-    vertices = _get_projected_vertices(scene)
+    vertices = _get_projected_vertices(scene, image_size)
 
     borders = []
     sharp_edges = []
