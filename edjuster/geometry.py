@@ -100,8 +100,10 @@ def detect_mesh_edges(scene):
             if angle_between_normals >= np.math.pi / 2:
                 sharp_edges.append(edge)
 
-    return MeshEdges(
-        vertices[:, :-1],
-        np.array(borders),
-        np.array(sharp_edges)
-    )
+    vertices = vertices[:, :-1]
+    borders = np.array(borders)
+    if sharp_edges:
+        sharp_edges = np.array(sharp_edges)
+    else:
+        sharp_edges = np.ndarray((0, 2), borders.dtype)
+    return MeshEdges(vertices, borders, sharp_edges)
