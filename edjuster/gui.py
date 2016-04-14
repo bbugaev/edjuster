@@ -2,6 +2,8 @@ import numpy as np
 from PySide import QtCore, QtGui, QtOpenGL
 from OpenGL import GL
 
+from geometry import convert_from_format
+
 
 WINDOW_TITLE = 'Edjuster'
 
@@ -25,8 +27,9 @@ class Drawer(QtOpenGL.QGLWidget):
     WIREFRAME_COLOR = np.array([0.0, 1.0, 0.0])
     BORDER_COLOR = np.array([1.0, 0.0, 1.0])
     SHARP_EDGE_COLOR = np.array([1.0, 1.0, 0.0])
+    POINT_COLOR = np.array([1.0, 0, 0])
 
-    def __init__(self, image, scene, mesh_edges):
+    def __init__(self, image, scene, mesh_edges, points):
         QtOpenGL.QGLWidget.__init__(self)
         self.setWindowTitle(self.tr(WINDOW_TITLE))
 
@@ -35,6 +38,7 @@ class Drawer(QtOpenGL.QGLWidget):
         self._image = _create_texture_qimage(image)
         self._scene = scene
         self._mesh_edges = mesh_edges
+        self._points = convert_from_format(points, image.shape)
 
     def initializeGL(self):
         Drawer._load_ortho()
@@ -75,6 +79,7 @@ class Drawer(QtOpenGL.QGLWidget):
         self._draw_edges(self._mesh_edges.sharp_edges, Drawer.SHARP_EDGE_COLOR)
         Drawer._pop_matrices()
 
+        self._draw_points()
 
     def _load_scene_matrices(self):
         GL.glMatrixMode(GL.GL_PROJECTION)
@@ -117,6 +122,14 @@ class Drawer(QtOpenGL.QGLWidget):
                 GL.glVertex3dv(vertex)
         GL.glEnd()
 
+    def _draw_points(self):
+        GL.glColor3dv(Drawer.POINT_COLOR)
+        GL.glPointSize(5)
+        GL.glBegin(GL.GL_POINTS)
+        for point in self._points:
+            GL.glVertex2dv(point)
+        GL.glEnd()
+
     def _init_call_list(self):
         self._call_list = GL.glGenLists(1)
         GL.glNewList(self._call_list, GL.GL_COMPILE)
@@ -152,7 +165,7 @@ class Drawer(QtOpenGL.QGLWidget):
         GL.glPopMatrix()
 
 
-def run_gui(argv, image, scene, mesh_edges):
+def run_gui(argv, image, scene, mesh_edges, points):
     app = QtGui.QApplication(argv)
 
     if not QtOpenGL.QGLFormat.hasOpenGL():
@@ -160,7 +173,7 @@ def run_gui(argv, image, scene, mesh_edges):
                                    'This system does not support OpenGL')
         return 1
 
-    window = Drawer(image, scene, mesh_edges)
+    window = Drawer(image, scene, mesh_edges, points)
     window.resize(800, 600)
     window.show()
 

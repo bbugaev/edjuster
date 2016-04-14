@@ -48,6 +48,12 @@ def convert_to_format(points, image_size):
     return points
 
 
+def convert_from_format(points, image_size):
+    points = points / (np.array([image_size[1], image_size[0]]) / 2.0)
+    points -= np.array([1, 1])
+    return points
+
+
 def _get_projected_vertices(scene, image_size):
     """Return projected vertices of given scene in homogeneous coordinates"""
     mvp = scene.proj.dot(scene.view.dot(scene.model))
