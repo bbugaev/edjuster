@@ -1,5 +1,6 @@
 #! /usr/bin/env python2
 
+from functools import partial
 import os.path as path
 import sys
 
@@ -22,7 +23,8 @@ def load_file(folder, filename, hint, loader):
 
 
 def load_input(input_folder):
-    image = load_file(input_folder, 'image.png', '3D object image', imread)
+    image = load_file(input_folder, 'image.png', '3D object image',
+                      partial(imread, mode='L'))
     mesh = load_file(input_folder, 'mesh.obj', '3D object', load_mesh)
     model = load_file(input_folder, 'model.txt', 'model matrix', np.loadtxt)
     view = load_file(input_folder, 'view.txt', 'view matrix', np.loadtxt)
