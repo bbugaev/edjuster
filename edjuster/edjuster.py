@@ -10,7 +10,7 @@ from scipy.ndimage import imread
 
 from geometry import detect_mesh_edges, load_mesh, Scene
 from gui import run_gui
-from optimization import select_points
+from optimization import approximate_edge_integral
 
 
 def load_file(folder, filename, hint, loader):
@@ -40,8 +40,14 @@ def edjust(ctx, input_folder):
 
     image, scene = load_input(input_folder)
     mesh_edges = detect_mesh_edges(scene, image.shape)
-    points = select_points(mesh_edges, 50)
 
+    integral, points = approximate_edge_integral(
+        image / 255.0,
+        mesh_edges,
+        100
+    )
+
+    click.echo(integral)
     ctx.exit(run_gui(sys.argv[:1], image, scene, mesh_edges, points))
 
 
