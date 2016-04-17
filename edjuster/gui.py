@@ -2,11 +2,13 @@ import numpy as np
 from PySide import QtCore, QtGui, QtOpenGL
 from OpenGL import GL
 
+from geometry import convert_from_format
+
 
 WINDOW_TITLE = 'Edjuster'
 
 
-def _create_qimage(image):
+def _create_texture_qimage(image):
     image_formats = {
         1: QtGui.QImage.Format_Indexed8,
         3: QtGui.QImage.Format_RGB888
@@ -16,26 +18,31 @@ def _create_qimage(image):
     if image.dtype != np.uint8 or channel_count not in image_formats:
         raise ValueError('Argument must be 8-bit grayscale or RGB888 image')
 
+    image = np.flipud(image).copy()
     return QtGui.QImage(image.data, image.shape[1], image.shape[0],
-                        image_formats[channel_count])
+                        image_formats[channel_count]).copy()
 
 
 class Drawer(QtOpenGL.QGLWidget):
     WIREFRAME_COLOR = np.array([0.0, 1.0, 0.0])
     BORDER_COLOR = np.array([1.0, 0.0, 1.0])
     SHARP_EDGE_COLOR = np.array([1.0, 1.0, 0.0])
+    POINT_COLOR = np.array([1.0, 0, 0])
 
-    def __init__(self, image, scene, mesh_edges):
+    def __init__(self, image, scene, mesh_edges, points):
         QtOpenGL.QGLWidget.__init__(self)
         self.setWindowTitle(self.tr(WINDOW_TITLE))
 
         self._call_list = []
         self._texture_id = 0
-        self._image = _create_qimage(image)
+        self._image = _create_texture_qimage(image)
         self._scene = scene
         self._mesh_edges = mesh_edges
+        self._points = convert_from_format(points, image.shape)
 
     def initializeGL(self):
+        Drawer._load_ortho()
+
         self._texture_id = self.bindTexture(self._image)
         self._init_call_list()
 
@@ -64,25 +71,28 @@ class Drawer(QtOpenGL.QGLWidget):
     def paintGL(self):
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
         self._draw_image()
+
+        Drawer._push_matrices()
+        self._load_scene_matrices()
         self._draw_mesh()
+        self._draw_edges(self._mesh_edges.borders, Drawer.BORDER_COLOR)
+        self._draw_edges(self._mesh_edges.sharp_edges, Drawer.SHARP_EDGE_COLOR)
+        Drawer._pop_matrices()
 
-    def _draw_image(self):
-        GL.glMatrixMode(GL.GL_PROJECTION)
-        GL.glLoadIdentity()
-        GL.glOrtho(-0.5, 0.5, 0.5, -0.5, -0.5, 0.5)
-        GL.glMatrixMode(GL.GL_MODELVIEW)
-        GL.glLoadIdentity()
+        self._draw_points()
 
-        self.qglColor(QtCore.Qt.white)
-        self.drawTexture(QtCore.QRectF(-0.5, -0.5, 1, 1), self._texture_id)
-
-    def _draw_mesh(self):
+    def _load_scene_matrices(self):
         GL.glMatrixMode(GL.GL_PROJECTION)
         GL.glLoadMatrixd(self._scene.proj.T)
         GL.glMatrixMode(GL.GL_MODELVIEW)
         model_view = self._scene.view.dot(self._scene.model).T
         GL.glLoadMatrixd(model_view)
 
+    def _draw_image(self):
+        self.qglColor(QtCore.Qt.white)
+        self.drawTexture(QtCore.QRectF(-1, -1, 2, 2), self._texture_id)
+
+    def _draw_mesh(self):
         GL.glEnable(GL.GL_CULL_FACE)
         GL.glEnable(GL.GL_DEPTH_TEST)
 
@@ -104,15 +114,20 @@ class Drawer(QtOpenGL.QGLWidget):
         GL.glDisable(GL.GL_DEPTH_TEST)
         GL.glDisable(GL.GL_CULL_FACE)
 
-        self._draw_edges(self._mesh_edges.borders, Drawer.BORDER_COLOR)
-        self._draw_edges(self._mesh_edges.sharp_edges, Drawer.SHARP_EDGE_COLOR)
-
     def _draw_edges(self, edges, color):
         GL.glColor3dv(color)
         GL.glBegin(GL.GL_LINES)
         for line in edges:
             for vertex in self._scene.mesh.vertices[line]:
                 GL.glVertex3dv(vertex)
+        GL.glEnd()
+
+    def _draw_points(self):
+        GL.glColor3dv(Drawer.POINT_COLOR)
+        GL.glPointSize(5)
+        GL.glBegin(GL.GL_POINTS)
+        for point in self._points:
+            GL.glVertex2dv(point)
         GL.glEnd()
 
     def _init_call_list(self):
@@ -127,8 +142,30 @@ class Drawer(QtOpenGL.QGLWidget):
 
         GL.glEndList()
 
+    @staticmethod
+    def _load_ortho():
+        GL.glMatrixMode(GL.GL_PROJECTION)
+        GL.glLoadIdentity()
+        GL.glOrtho(-1, 1, -1, 1, -1, 1)
+        GL.glMatrixMode(GL.GL_MODELVIEW)
+        GL.glLoadIdentity()
 
-def run_gui(argv, image, scene, mesh_edges):
+    @staticmethod
+    def _push_matrices():
+        GL.glMatrixMode(GL.GL_PROJECTION)
+        GL.glPushMatrix()
+        GL.glMatrixMode(GL.GL_MODELVIEW)
+        GL.glPushMatrix()
+
+    @staticmethod
+    def _pop_matrices():
+        GL.glMatrixMode(GL.GL_PROJECTION)
+        GL.glPopMatrix()
+        GL.glMatrixMode(GL.GL_MODELVIEW)
+        GL.glPopMatrix()
+
+
+def run_gui(argv, image, scene, mesh_edges, points):
     app = QtGui.QApplication(argv)
 
     if not QtOpenGL.QGLFormat.hasOpenGL():
@@ -136,7 +173,7 @@ def run_gui(argv, image, scene, mesh_edges):
                                    'This system does not support OpenGL')
         return 1
 
-    window = Drawer(image, scene, mesh_edges)
+    window = Drawer(image, scene, mesh_edges, points)
     window.resize(800, 600)
     window.show()
 

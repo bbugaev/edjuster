@@ -1,5 +1,6 @@
 #! /usr/bin/env python2
 
+from functools import partial
 import os.path as path
 import sys
 
@@ -9,6 +10,7 @@ from scipy.ndimage import imread
 
 from geometry import detect_mesh_edges, load_mesh, Scene
 from gui import run_gui
+from optimization import approximate_edge_integral
 
 
 def load_file(folder, filename, hint, loader):
@@ -21,7 +23,8 @@ def load_file(folder, filename, hint, loader):
 
 
 def load_input(input_folder):
-    image = load_file(input_folder, 'image.png', '3D object image', imread)
+    image = load_file(input_folder, 'image.png', '3D object image',
+                      partial(imread, mode='L'))
     mesh = load_file(input_folder, 'mesh.obj', '3D object', load_mesh)
     model = load_file(input_folder, 'model.txt', 'model matrix', np.loadtxt)
     view = load_file(input_folder, 'view.txt', 'view matrix', np.loadtxt)
@@ -36,9 +39,16 @@ def edjust(ctx, input_folder):
     """Adjust pose of 3D object"""
 
     image, scene = load_input(input_folder)
-    mesh_edges = detect_mesh_edges(scene)
+    mesh_edges = detect_mesh_edges(scene, image.shape)
 
-    ctx.exit(run_gui(sys.argv[:1], image, scene, mesh_edges))
+    integral, points = approximate_edge_integral(
+        image / 255.0,
+        mesh_edges,
+        100
+    )
+
+    click.echo(integral)
+    ctx.exit(run_gui(sys.argv[:1], image, scene, mesh_edges, points))
 
 
 if __name__ == '__main__':
