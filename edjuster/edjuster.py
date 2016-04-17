@@ -10,7 +10,7 @@ from scipy.ndimage import imread
 
 from geometry import detect_mesh_edges, load_mesh, Scene, Position
 from gui import run_gui
-from optimization import approximate_edge_integral
+from optimization import IntegralCalculator
 
 
 def load_file(folder, filename, hint, loader):
@@ -44,15 +44,10 @@ def edjust(ctx, input_folder):
     """Adjust pose of 3D object"""
 
     image, scene = load_input(input_folder)
-    mesh_edges = detect_mesh_edges(scene, image.shape)
 
-    integral, points = approximate_edge_integral(
-        image / 255.0,
-        mesh_edges,
-        100
-    )
+    integral_calculator = IntegralCalculator(image / 255.0, scene, 100)
+    click.echo(integral_calculator(scene.model.vector6))
 
-    click.echo(integral)
     ctx.exit(run_gui(sys.argv[:1], image, scene))
 
 
