@@ -53,7 +53,7 @@ def edjust(ctx, input_folder):
     )
 
     click.echo(integral)
-    ctx.exit(run_gui(sys.argv[:1], image, scene, mesh_edges, points))
+    ctx.exit(run_gui(sys.argv[:1], image, scene))
 
 
 if __name__ == '__main__':

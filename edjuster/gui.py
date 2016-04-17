@@ -29,7 +29,7 @@ class Drawer(QtOpenGL.QGLWidget):
     SHARP_EDGE_COLOR = np.array([1.0, 1.0, 0.0])
     POINT_COLOR = np.array([1.0, 0, 0])
 
-    def __init__(self, image, scene, mesh_edges, points):
+    def __init__(self, image, scene, mesh_edges=None, points=None):
         QtOpenGL.QGLWidget.__init__(self)
         self.setWindowTitle(self.tr(WINDOW_TITLE))
 
@@ -38,7 +38,9 @@ class Drawer(QtOpenGL.QGLWidget):
         self._image = _create_texture_qimage(image)
         self._scene = scene
         self._mesh_edges = mesh_edges
-        self._points = convert_from_format(points, image.shape)
+        if points:
+            points = convert_from_format(points, image.shape)
+        self._points = points
 
     def initializeGL(self):
         Drawer._load_ortho()
@@ -75,11 +77,14 @@ class Drawer(QtOpenGL.QGLWidget):
         Drawer._push_matrices()
         self._load_scene_matrices()
         self._draw_mesh()
-        self._draw_edges(self._mesh_edges.borders, Drawer.BORDER_COLOR)
-        self._draw_edges(self._mesh_edges.sharp_edges, Drawer.SHARP_EDGE_COLOR)
+        if self._mesh_edges:
+            self._draw_edges(self._mesh_edges.borders, Drawer.BORDER_COLOR)
+            self._draw_edges(self._mesh_edges.sharp_edges,
+                             Drawer.SHARP_EDGE_COLOR)
         Drawer._pop_matrices()
 
-        self._draw_points()
+        if self._points:
+            self._draw_points()
 
     def _load_scene_matrices(self):
         GL.glMatrixMode(GL.GL_PROJECTION)
@@ -165,7 +170,7 @@ class Drawer(QtOpenGL.QGLWidget):
         GL.glPopMatrix()
 
 
-def run_gui(argv, image, scene, mesh_edges, points):
+def run_gui(argv, image, scene, mesh_edges=None, points=None):
     app = QtGui.QApplication(argv)
 
     if not QtOpenGL.QGLFormat.hasOpenGL():
