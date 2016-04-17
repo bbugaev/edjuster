@@ -72,6 +72,6 @@ def approximate_edge_integral(image, mesh_edges, point_count):
 
     normals = _calc_normals(lines)
     gradients = Gradient(image)[selected_points]
-    integral = ((normals * gradients).sum(axis=1)**2).sum()
+    integral = ((normals * gradients).sum(axis=1)**2).sum() / normals.shape[0]
 
     return integral, selected_points
