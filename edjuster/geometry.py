@@ -12,6 +12,47 @@ MeshEdges = namedtuple('MeshEdges',
                        ('projected_vertices', 'borders', 'sharp_edges'))
 
 
+class Position(object):
+    DEG = 'deg'
+    RAD = 'rad'
+
+    def __init__(self, translation, rotation, rotation_unit=DEG):
+        if rotation_unit not in (Position.DEG, Position.RAD):
+            raise ValueError(
+                'Invalid rotation unit (use Position.DEG or Position.RAD)'
+            )
+        if rotation_unit == Position.RAD:
+            rotation_unit *= 180.0 / np.pi
+        self.translation = translation
+        self.deg_rotation = rotation
+
+    @property
+    def rad_rotation(self):
+        return self.deg_rotation * np.pi / 180.0
+
+    @property
+    def matrix(self):
+        sines = np.sin(self.rad_rotation)
+        cosines = np.cos(self.rad_rotation)
+        x_rotation = np.array([[1, 0, 0],
+                               [0, cosines[0], -sines[0]],
+                               [0, sines[0], cosines[0]]])
+        y_rotation = np.array([[cosines[1], 0, sines[1]],
+                               [0, 1, 0],
+                               [-sines[1], 0, cosines[1]]])
+        z_rotation = np.array([[cosines[2], -sines[2], 0],
+                               [sines[2], cosines[2], 0],
+                               [0, 0, 1]])
+        result = np.eye(4)
+        result[:3, 3] = self.translation
+        result[0:3, 0:3] = z_rotation.dot(y_rotation.dot(x_rotation))
+        return result
+
+    @property
+    def vector6(self):
+        return np.concatenate((self.translation, self.deg_rotation))
+
+
 def _make_vector_array(vector):
     return [vector.x, vector.y, vector.z]
 
@@ -56,7 +97,7 @@ def convert_from_format(points, image_size):
 
 def _get_projected_vertices(scene, image_size):
     """Return projected vertices of given scene in homogeneous coordinates"""
-    mvp = scene.proj.dot(scene.view.dot(scene.model))
+    mvp = scene.proj.dot(scene.view.matrix.dot(scene.model.matrix))
     vertices = np.insert(scene.mesh.vertices, 3, 1, axis=1)
     vertices = np.dot(vertices, mvp.T)
     vertices /= vertices[:, -1:]

@@ -85,7 +85,7 @@ class Drawer(QtOpenGL.QGLWidget):
         GL.glMatrixMode(GL.GL_PROJECTION)
         GL.glLoadMatrixd(self._scene.proj.T)
         GL.glMatrixMode(GL.GL_MODELVIEW)
-        model_view = self._scene.view.dot(self._scene.model).T
+        model_view = self._scene.view.matrix.dot(self._scene.model.matrix).T
         GL.glLoadMatrixd(model_view)
 
     def _draw_image(self):

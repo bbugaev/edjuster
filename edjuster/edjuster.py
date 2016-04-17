@@ -8,7 +8,7 @@ import click
 import numpy as np
 from scipy.ndimage import imread
 
-from geometry import detect_mesh_edges, load_mesh, Scene
+from geometry import detect_mesh_edges, load_mesh, Scene, Position
 from gui import run_gui
 from optimization import approximate_edge_integral
 
@@ -26,9 +26,14 @@ def load_input(input_folder):
     image = load_file(input_folder, 'image.png', '3D object image',
                       partial(imread, mode='L'))
     mesh = load_file(input_folder, 'mesh.obj', '3D object', load_mesh)
-    model = load_file(input_folder, 'model.txt', 'model matrix', np.loadtxt)
-    view = load_file(input_folder, 'view.txt', 'view matrix', np.loadtxt)
     proj = load_file(input_folder, 'proj.txt', 'proj matrix', np.loadtxt)
+
+    model = load_file(input_folder, 'model.txt', 'model matrix', np.loadtxt)
+    model = Position(model[0], model[1])
+
+    view = load_file(input_folder, 'view.txt', 'view matrix', np.loadtxt)
+    view = Position(view[0], view[1])
+
     return image, Scene(mesh, model, view, proj)
 
 
