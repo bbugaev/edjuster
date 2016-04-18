@@ -95,23 +95,22 @@ class IntegralCalculator(object):
         return normals
 
 
-def optimize_model(image, scene, process_step, echo):
+def optimize_model(image, scene, step_callback, echo):
     integral_calculator = IntegralCalculator(image, scene, 100)
 
-    result = basinhopping(
+    basinhopping_result = basinhopping(
         lambda x: 1 - integral_calculator(Position(x)),
         scene.model.vector6,
         niter=100,
         T=0.01,
-        stepsize=0.002,
+        stepsize=0.01,
         minimizer_kwargs={'method': 'Nelder-Mead'},
-        callback=process_step,
+        callback=step_callback,
         disp=echo
     )
 
     if echo:
         print
-        print result
+        print basinhopping_result
 
-    adjusted_model = Position(result.x)
-    return adjusted_model
+    return Position(basinhopping_result.x)
