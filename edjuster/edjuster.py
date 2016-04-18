@@ -25,8 +25,10 @@ def load_file(folder, filename, hint, loader):
 
 
 def load_input(input_folder):
-    image = load_file(input_folder, 'image.png', '3D object image',
-                      partial(imread, mode='L'))
+    rgb = load_file(input_folder, 'image.png', '3D object image',
+                    partial(imread, mode='RGB'))
+    gray = load_file(input_folder, 'image.png', '3D object image',
+                     partial(imread, mode='F'))
     mesh = load_file(input_folder, 'mesh.obj', '3D object', load_mesh)
     proj = load_file(input_folder, 'proj.txt', 'proj matrix', np.loadtxt)
 
@@ -36,7 +38,7 @@ def load_input(input_folder):
     view = load_file(input_folder, 'view.txt', 'view matrix', np.loadtxt)
     view = Position(view.flatten())
 
-    return image, Scene(mesh, model, view, proj)
+    return rgb, gray, Scene(mesh, model, view, proj)
 
 
 def run_optimization(image, scene, model_queue):
@@ -59,12 +61,12 @@ def run_optimization(image, scene, model_queue):
 def edjust(ctx, input_folder):
     """Adjust pose of 3D object"""
 
-    image, scene = load_input(input_folder)
+    rgb, gray, scene = load_input(input_folder)
     model_queue = SimpleQueue()
     process = Process(target=run_optimization,
-                      args=(image, scene, model_queue))
+                      args=(gray, scene, model_queue))
     process.start()
-    exit_code = run_gui(sys.argv[:1], image, scene, model_queue)
+    exit_code = run_gui(sys.argv[:1], rgb, scene, model_queue)
     process.terminate()
     ctx.exit(exit_code)
 
