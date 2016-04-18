@@ -107,8 +107,7 @@ def _get_projected_vertices(scene, image_size):
 
 
 def _calc_faces_of_edges(mesh):
-    faces = mesh.faces
-    faces.shape = faces.shape + (1,)
+    faces = mesh.faces[:, :, np.newaxis]
     rolled_faces = np.roll(faces, 1, axis=1)
     edges = np.dstack((faces, rolled_faces))
     edges.sort()
