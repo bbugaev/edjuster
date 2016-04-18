@@ -16,15 +16,22 @@ class Position(object):
     DEG = 'deg'
     RAD = 'rad'
 
-    def __init__(self, translation, rotation, rotation_unit=DEG):
+    def __init__(self, vector6, rotation_unit=DEG):
         if rotation_unit not in (Position.DEG, Position.RAD):
             raise ValueError(
                 'Invalid rotation unit (use Position.DEG or Position.RAD)'
             )
+        self.vector6 = np.array(vector6, dtype='float64', copy=True)
         if rotation_unit == Position.RAD:
-            rotation_unit *= 180.0 / np.pi
-        self.translation = translation
-        self.deg_rotation = rotation
+            vector6[3:] *= 180.0 / np.pi
+
+    @property
+    def translation(self):
+        return self.vector6[:3]
+
+    @property
+    def deg_rotation(self):
+        return self.vector6[3:]
 
     @property
     def rad_rotation(self):
@@ -47,10 +54,6 @@ class Position(object):
         result[:3, 3] = self.translation
         result[0:3, 0:3] = z_rotation.dot(y_rotation.dot(x_rotation))
         return result
-
-    @property
-    def vector6(self):
-        return np.concatenate((self.translation, self.deg_rotation))
 
 
 def _make_vector_array(vector):

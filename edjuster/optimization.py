@@ -99,7 +99,7 @@ def optimize_model(image, scene, process_step, echo):
     integral_calculator = IntegralCalculator(image, scene, 100)
 
     result = basinhopping(
-        lambda x: 1 - integral_calculator(Position(x[:3], x[3:])),
+        lambda x: 1 - integral_calculator(Position(x)),
         scene.model.vector6,
         niter=100,
         T=0.01,
@@ -113,5 +113,5 @@ def optimize_model(image, scene, process_step, echo):
         print
         print result
 
-    adjusted_model = Position(result.x[:3], result.x[3:])
+    adjusted_model = Position(result.x)
     return adjusted_model

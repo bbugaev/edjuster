@@ -31,10 +31,10 @@ def load_input(input_folder):
     proj = load_file(input_folder, 'proj.txt', 'proj matrix', np.loadtxt)
 
     model = load_file(input_folder, 'model.txt', 'model matrix', np.loadtxt)
-    model = Position(model[0], model[1])
+    model = Position(model.flatten())
 
     view = load_file(input_folder, 'view.txt', 'view matrix', np.loadtxt)
-    view = Position(view[0], view[1])
+    view = Position(view.flatten())
 
     return image, Scene(mesh, model, view, proj)
 
@@ -43,7 +43,7 @@ def run_optimization(image, scene, model_queue):
 
     def process_step(vector6, _, accepted):
         if accepted:
-            model_queue.put(Position(vector6[:3], vector6[3:]))
+            model_queue.put(Position(vector6))
 
     optimized_model = optimize_model(image / 255.0, scene, process_step, True)
     model_queue.put(optimized_model)
