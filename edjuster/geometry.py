@@ -141,6 +141,9 @@ def detect_mesh_edges(scene, image_size):
     sharp_edges = []
 
     for edge, face_indices in edge_faces.iteritems():
+        if len(face_indices) != 2:
+            continue
+
         face_1, face_2 = (scene.mesh.faces[i] for i in face_indices)
         front_1 = _is_front(vertices[face_1])
         front_2 = _is_front(vertices[face_2])
