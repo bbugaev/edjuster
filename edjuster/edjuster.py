@@ -1,6 +1,8 @@
 #! /usr/bin/env python2
 
 from functools import partial
+from multiprocessing import Process
+from multiprocessing.queues import SimpleQueue
 import os.path as path
 import sys
 
@@ -8,9 +10,9 @@ import click
 import numpy as np
 from scipy.ndimage import imread
 
-from geometry import detect_mesh_edges, load_mesh, Scene, Position
+from geometry import load_mesh, Scene, Position
 from gui import run_gui
-from optimization import IntegralCalculator
+from optimization import optimize_model
 
 
 def load_file(folder, filename, hint, loader):
@@ -37,6 +39,20 @@ def load_input(input_folder):
     return image, Scene(mesh, model, view, proj)
 
 
+def run_optimization(image, scene, model_queue):
+
+    def process_step(vector6, _, accepted):
+        if accepted:
+            model_queue.put(Position(vector6[:3], vector6[3:]))
+
+    optimized_model = optimize_model(image / 255.0, scene, process_step, True)
+    model_queue.put(optimized_model)
+
+    print
+    print 'result translation: ', optimized_model.translation
+    print 'result rotation: ', optimized_model.deg_rotation
+
+
 @click.command()
 @click.argument('input_folder', type=click.Path(exists=True, file_okay=False))
 @click.pass_context
@@ -44,11 +60,13 @@ def edjust(ctx, input_folder):
     """Adjust pose of 3D object"""
 
     image, scene = load_input(input_folder)
-
-    integral_calculator = IntegralCalculator(image / 255.0, scene, 100)
-    click.echo(integral_calculator(scene.model.vector6))
-
-    ctx.exit(run_gui(sys.argv[:1], image, scene))
+    model_queue = SimpleQueue()
+    process = Process(target=run_optimization,
+                      args=(image, scene, model_queue))
+    process.start()
+    exit_code = run_gui(sys.argv[:1], image, scene, model_queue)
+    process.terminate()
+    ctx.exit(exit_code)
 
 
 if __name__ == '__main__':

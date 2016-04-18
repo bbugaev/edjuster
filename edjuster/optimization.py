@@ -3,8 +3,9 @@ import itertools as itt
 import numpy as np
 from scipy.ndimage import convolve
 from scipy.interpolate import RectBivariateSpline
+from scipy.optimize import basinhopping
 
-from geometry import detect_mesh_edges, Scene, Position
+from geometry import detect_mesh_edges, Position
 
 
 class Gradient(object):
@@ -40,8 +41,7 @@ class IntegralCalculator(object):
         self._scene = scene
         self._point_count = point_count
 
-    def __call__(self, position_vector6):
-        position = Position(position_vector6[:3], position_vector6[3:])
+    def __call__(self, position):
         scene = self._scene._replace(model=position)
         mesh_edges = detect_mesh_edges(scene, self._image_size)
 
@@ -76,10 +76,10 @@ class IntegralCalculator(object):
                 current_length += step
             prefix_length += length
 
-        points = np.array(points[:self._point_count])
-        line_indices = np.array(line_indices[:self._point_count])
-
-        return self._clip(points, line_indices)
+        return self._clip(
+            np.array(points[:self._point_count]),
+            np.array(line_indices[:self._point_count])
+        )
 
     def _clip(self, points, line_indices):
         mask = (points >= (0, 0)) & (points < self._image_size[::-1])
@@ -93,3 +93,25 @@ class IntegralCalculator(object):
         normals /= norms
         normals = np.dot(normals, np.array([[0, -1], [1, 0]]))
         return normals
+
+
+def optimize_model(image, scene, process_step, echo):
+    integral_calculator = IntegralCalculator(image, scene, 100)
+
+    result = basinhopping(
+        lambda x: 1 - integral_calculator(Position(x[:3], x[3:])),
+        scene.model.vector6,
+        niter=100,
+        T=0.01,
+        stepsize=0.002,
+        minimizer_kwargs={'method': 'Nelder-Mead'},
+        callback=process_step,
+        disp=echo
+    )
+
+    if echo:
+        print
+        print result
+
+    adjusted_model = Position(result.x[:3], result.x[3:])
+    return adjusted_model
