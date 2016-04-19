@@ -100,16 +100,32 @@ class IntegralCalculator(object):
         return normals
 
 
+class Walker(object):
+
+    def __init__(self, step_vector, step_size):
+        self.step_vector = step_vector
+        self.stepsize = step_size
+
+    def __call__(self, vector):
+        random_vector = np.random.uniform(-1, 1, vector.shape)
+        return vector + self.step_vector * random_vector * self.stepsize
+
+
 def optimize_model(image, scene, step_callback, echo):
     integral_calculator = IntegralCalculator(image, scene, 100)
+
+    walker = Walker(
+        np.array([0.02, 0.02, 0.02, 5, 5, 5]),
+        0.5
+    )
 
     basinhopping_result = basinhopping(
         lambda x: 1 - integral_calculator(Position(x)),
         scene.model.vector6,
-        niter=100,
+        niter=300,
         T=0.01,
-        stepsize=0.01,
-        minimizer_kwargs={'method': 'Nelder-Mead'},
+        minimizer_kwargs={'method': 'SLSQP'},
+        take_step=walker,
         callback=step_callback,
         disp=echo
     )
