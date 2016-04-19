@@ -5,7 +5,7 @@ from scipy.ndimage import convolve
 from scipy.interpolate import RectBivariateSpline
 from scipy.optimize import basinhopping
 
-from geometry import detect_mesh_edges, find_faces_of_edges, Position
+from geometry import MeshEdgeDetector, Position
 
 
 class Gradient(object):
@@ -41,12 +41,14 @@ class IntegralCalculator(object):
         self._point_count = point_count
 
         self._gradient = Gradient(image)
-        self._faces_of_edges = find_faces_of_edges(scene.mesh)
+        self._mesh_edge_detector = MeshEdgeDetector(scene.mesh)
 
     def __call__(self, position):
         scene = self._scene._replace(model=position)
-        mesh_edges = detect_mesh_edges(scene, self._faces_of_edges,
-                                       self._image_size)
+        mesh_edges = self._mesh_edge_detector(
+            scene.proj.dot(scene.view.matrix.dot(scene.model.matrix)),
+            self._image_size
+        )
 
         edges = np.vstack((mesh_edges.borders, mesh_edges.sharp_edges))
         lines = mesh_edges.projected_vertices[edges]

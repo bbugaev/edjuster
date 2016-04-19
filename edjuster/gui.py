@@ -2,7 +2,7 @@ import numpy as np
 from PySide import QtCore, QtGui, QtOpenGL
 from OpenGL import GL
 
-from geometry import detect_mesh_edges, find_faces_of_edges
+from geometry import MeshEdgeDetector
 
 
 WINDOW_TITLE = 'Edjuster'
@@ -40,7 +40,7 @@ class Drawer(QtOpenGL.QGLWidget):
         self._image = _create_texture_qimage(image)
         self._scene = scene
         self._model_queue = model_queue
-        self._faces_of_edges = find_faces_of_edges(scene.mesh)
+        self._mesh_edge_detector = MeshEdgeDetector(scene.mesh)
         self._update_mesh_edges()
 
     def timerEvent(self, _):
@@ -93,9 +93,9 @@ class Drawer(QtOpenGL.QGLWidget):
         Drawer._pop_matrices()
 
     def _update_mesh_edges(self):
-        self._mesh_edges = detect_mesh_edges(
-            self._scene,
-            self._faces_of_edges,
+        scene = self._scene
+        self._mesh_edges = self._mesh_edge_detector(
+            scene.proj.dot(scene.view.matrix.dot(scene.model.matrix)),
             (self._image.height(), self._image.width())
         )
 

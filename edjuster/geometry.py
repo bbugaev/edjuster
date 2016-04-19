@@ -8,8 +8,6 @@ from pyassimp.postprocess import aiProcess_Triangulate
 
 Mesh = namedtuple('Mesh', ('vertices', 'faces'))
 Scene = namedtuple('Scene', ('mesh', 'model', 'view', 'proj'))
-MeshEdges = namedtuple('MeshEdges',
-                       ('projected_vertices', 'borders', 'sharp_edges'))
 
 
 class Position(object):
@@ -98,62 +96,69 @@ def convert_from_format(points, image_size):
     return points
 
 
-def _get_projected_vertices(scene, image_size):
-    mvp = scene.proj.dot(scene.view.matrix.dot(scene.model.matrix))
-    vertices = np.insert(scene.mesh.vertices, 3, 1, axis=1)
-    vertices = np.dot(vertices, mvp.T)
-    vertices /= vertices[:, -1:]
-    vertices = convert_to_format(vertices[:, :2], image_size)
-    return vertices
+class MeshEdgeDetector(object):
+    MeshEdges = namedtuple('MeshEdges',
+                           ('projected_vertices', 'borders', 'sharp_edges'))
 
+    def __init__(self, mesh):
+        self._mesh = mesh
+        self._edges, self._faces = MeshEdgeDetector._find_faces_of_edges(mesh)
 
-def _cross(triangles):
-    points = [p.reshape(-1, triangles.shape[-1])
-              for p in np.hsplit(triangles, 3)]
-    return np.cross(points[1] - points[0], points[2] - points[0])
+    def __call__(self, mvp, image_size):
+        vertices = self._get_projected_vertices(mvp, image_size)
 
+        edges, faces = self._edges, self._faces
+        front_masks = [MeshEdgeDetector._are_front(vertices[f]) for f in faces]
 
-def _are_front(triangles):
-    return _cross(triangles) > 0
+        borders = edges[front_masks[0] != front_masks[1]]
 
+        front_masks_and = front_masks[0] & front_masks[1]
+        edges = edges[front_masks_and]
+        faces = [f[front_masks_and] for f in faces]
+        normals = [MeshEdgeDetector._calc_normals(self._mesh.vertices[f])
+                   for f in faces]
+        angles = np.arccos((normals[0] * normals[1]).sum(axis=1))
+        sharp_edges = edges[angles >= np.pi / 2]
 
-def _calc_normals(triangles):
-    normals = _cross(triangles)
-    norms = np.repeat(np.linalg.norm(normals, axis=1), 3).reshape(-1, 3)
-    return normals / norms
+        return MeshEdgeDetector.MeshEdges(vertices, borders, sharp_edges)
 
+    def _get_projected_vertices(self, mvp, image_size):
+        vertices = np.insert(self._mesh.vertices, 3, 1, axis=1)
+        vertices = np.dot(vertices, mvp.T)
+        vertices /= vertices[:, -1:]
+        vertices = convert_to_format(vertices[:, :2], image_size)
+        return vertices
 
-def detect_mesh_edges(scene, faces_of_edges, image_size):
-    vertices = _get_projected_vertices(scene, image_size)
+    @staticmethod
+    def _find_faces_of_edges(mesh):
+        faces = mesh.faces[:, :, np.newaxis]
+        rolled_faces = np.roll(faces, 1, axis=1)
+        edges = np.dstack((faces, rolled_faces))
+        edges.sort()
 
-    edges, faces = faces_of_edges
-    front_masks = [_are_front(vertices[f]) for f in faces]
+        edge_faces = defaultdict(list)
+        for face_idx, face_edges in enumerate(edges):
+            for edge in face_edges:
+                edge_faces[tuple(edge)].append(face_idx)
 
-    borders = edges[front_masks[0] != front_masks[1]]
+        edge_faces = {e: f for e, f in edge_faces.iteritems() if len(f) == 2}
+        result_edges = np.array(edge_faces.keys())
+        result_faces = mesh.faces[np.array(edge_faces.values())]
+        result_faces = [f.reshape(-1, 3) for f in np.hsplit(result_faces, 2)]
+        return result_edges, result_faces
 
-    front_masks_and = front_masks[0] & front_masks[1]
-    edges = edges[front_masks_and]
-    faces = [f[front_masks_and] for f in faces]
-    normals = [_calc_normals(scene.mesh.vertices[f]) for f in faces]
-    angles = np.arccos((normals[0] * normals[1]).sum(axis=1))
-    sharp_edges = edges[angles >= np.pi / 2]
+    @staticmethod
+    def _cross(triangles):
+        points = [p.reshape(-1, triangles.shape[-1])
+                  for p in np.hsplit(triangles, 3)]
+        return np.cross(points[1] - points[0], points[2] - points[0])
 
-    return MeshEdges(vertices, borders, sharp_edges)
+    @staticmethod
+    def _are_front(triangles):
+        return MeshEdgeDetector._cross(triangles) > 0
 
-
-def find_faces_of_edges(mesh):
-    faces = mesh.faces[:, :, np.newaxis]
-    rolled_faces = np.roll(faces, 1, axis=1)
-    edges = np.dstack((faces, rolled_faces))
-    edges.sort()
-
-    edge_faces = defaultdict(list)
-    for face_idx, face_edges in enumerate(edges):
-        for edge in face_edges:
-            edge_faces[tuple(edge)].append(face_idx)
-
-    edge_faces = {e: f for e, f in edge_faces.iteritems() if len(f) == 2}
-    result_edges = np.array(edge_faces.keys())
-    result_faces = mesh.faces[np.array(edge_faces.values())]
-    result_faces = tuple(f.reshape(-1, 3) for f in np.hsplit(result_faces, 2))
-    return result_edges, result_faces
+    @staticmethod
+    def _calc_normals(triangles):
+        normals = MeshEdgeDetector._cross(triangles)
+        norms = np.repeat(np.linalg.norm(normals, axis=1), 3).reshape(-1, 3)
+        return normals / norms
