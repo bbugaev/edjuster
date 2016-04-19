@@ -120,49 +120,38 @@ def _calc_faces_of_edges(mesh):
         for edge in face_edges:
             edge_faces[tuple(edge)].append(face_idx)
 
-    return edge_faces
+    edge_faces = {e: f for e, f in edge_faces.iteritems() if len(f) == 2}
+    result_edges = np.array(edge_faces.keys())
+    result_faces = mesh.faces[np.array(edge_faces.values())]
+    result_faces = tuple(f.reshape(-1, 3) for f in np.hsplit(result_faces, 2))
+    return result_edges, result_faces
 
 
-def _is_front(triangle):
-    return np.linalg.det(np.vstack(triangle)) > 0
+def _are_front(triangles):
+    return np.linalg.det(triangles) > 0
 
 
-def _calc_normal(triangle):
-    normal = np.cross(triangle[1] - triangle[0], triangle[2] - triangle[0])
-    normal /= np.linalg.norm(normal)
-    return normal
+def _calc_normals(triangles):
+    points = [p.reshape(-1, 3) for p in np.hsplit(triangles, 3)]
+    normals = np.cross(points[1] - points[0], points[2] - points[0])
+    norms = np.repeat(np.linalg.norm(normals, axis=1), 3).reshape(-1, 3)
+    return normals / norms
 
 
 def detect_mesh_edges(scene, image_size):
-    edge_faces = _calc_faces_of_edges(scene.mesh)
     vertices = _get_projected_vertices(scene, image_size)
 
-    borders = []
-    sharp_edges = []
+    edges, faces = _calc_faces_of_edges(scene.mesh)
+    front_masks = [_are_front(vertices[f]) for f in faces]
 
-    for edge, face_indices in edge_faces.iteritems():
-        if len(face_indices) != 2:
-            continue
+    borders = edges[front_masks[0] != front_masks[1]]
 
-        face_1, face_2 = (scene.mesh.faces[i] for i in face_indices)
-        front_1 = _is_front(vertices[face_1])
-        front_2 = _is_front(vertices[face_2])
-
-        if front_1 != front_2:
-            borders.append(edge)
-
-        if front_1 and front_2:
-            normal_1 = _calc_normal(scene.mesh.vertices[face_1])
-            normal_2 = _calc_normal(scene.mesh.vertices[face_2])
-            angle_between_normals = np.math.acos(np.inner(normal_1, normal_2))
-
-            if angle_between_normals >= np.math.pi / 2:
-                sharp_edges.append(edge)
+    front_masks_and = front_masks[0] & front_masks[1]
+    edges = edges[front_masks_and]
+    faces = [f[front_masks_and] for f in faces]
+    normals = [_calc_normals(scene.mesh.vertices[f]) for f in faces]
+    angles = np.arccos((normals[0] * normals[1]).sum(axis=1))
+    sharp_edges = edges[angles >= np.pi / 2]
 
     vertices = vertices[:, :-1]
-    borders = np.array(borders)
-    if sharp_edges:
-        sharp_edges = np.array(sharp_edges)
-    else:
-        sharp_edges = np.ndarray((0, 2), borders.dtype)
     return MeshEdges(vertices, borders, sharp_edges)
