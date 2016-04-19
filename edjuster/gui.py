@@ -24,9 +24,9 @@ def _create_texture_qimage(image):
 
 
 class Drawer(QtOpenGL.QGLWidget):
-    WIREFRAME_COLOR = np.array([0.0, 1.0, 0.0])
-    BORDER_COLOR = np.array([1.0, 0.0, 1.0])
-    SHARP_EDGE_COLOR = np.array([1.0, 1.0, 0.0])
+    WIREFRAME_COLOR = np.array([0.0, 1.0, 0.0, 0.1])
+    BORDER_COLOR = np.array([1.0, 0.0, 1.0, 0.5])
+    SHARP_EDGE_COLOR = np.array([1.0, 1.0, 0.0, 0.5])
     POINT_COLOR = np.array([1.0, 0, 0])
 
     def __init__(self, image, scene, model_queue):
@@ -124,7 +124,7 @@ class Drawer(QtOpenGL.QGLWidget):
 
         GL.glDepthMask(GL.GL_FALSE)
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
-        GL.glColor3dv(Drawer.WIREFRAME_COLOR)
+        GL.glColor4dv(Drawer.WIREFRAME_COLOR)
         GL.glCallList(self._call_list)
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
         GL.glDepthMask(GL.GL_TRUE)
@@ -133,7 +133,7 @@ class Drawer(QtOpenGL.QGLWidget):
         GL.glDisable(GL.GL_CULL_FACE)
 
     def _draw_edges(self, edges, color):
-        GL.glColor3dv(color)
+        GL.glColor4dv(color)
         GL.glBegin(GL.GL_LINES)
         for line in edges:
             for vertex in self._scene.mesh.vertices[line]:
