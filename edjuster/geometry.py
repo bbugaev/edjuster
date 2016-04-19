@@ -99,17 +99,49 @@ def convert_from_format(points, image_size):
 
 
 def _get_projected_vertices(scene, image_size):
-    """Return projected vertices of given scene in homogeneous coordinates"""
     mvp = scene.proj.dot(scene.view.matrix.dot(scene.model.matrix))
     vertices = np.insert(scene.mesh.vertices, 3, 1, axis=1)
     vertices = np.dot(vertices, mvp.T)
     vertices /= vertices[:, -1:]
     vertices = convert_to_format(vertices[:, :2], image_size)
-    vertices = np.insert(vertices, 2, 1, axis=1)
     return vertices
 
 
-def _calc_faces_of_edges(mesh):
+def _cross(triangles):
+    points = [p.reshape(-1, triangles.shape[-1])
+              for p in np.hsplit(triangles, 3)]
+    return np.cross(points[1] - points[0], points[2] - points[0])
+
+
+def _are_front(triangles):
+    return _cross(triangles) > 0
+
+
+def _calc_normals(triangles):
+    normals = _cross(triangles)
+    norms = np.repeat(np.linalg.norm(normals, axis=1), 3).reshape(-1, 3)
+    return normals / norms
+
+
+def detect_mesh_edges(scene, faces_of_edges, image_size):
+    vertices = _get_projected_vertices(scene, image_size)
+
+    edges, faces = faces_of_edges
+    front_masks = [_are_front(vertices[f]) for f in faces]
+
+    borders = edges[front_masks[0] != front_masks[1]]
+
+    front_masks_and = front_masks[0] & front_masks[1]
+    edges = edges[front_masks_and]
+    faces = [f[front_masks_and] for f in faces]
+    normals = [_calc_normals(scene.mesh.vertices[f]) for f in faces]
+    angles = np.arccos((normals[0] * normals[1]).sum(axis=1))
+    sharp_edges = edges[angles >= np.pi / 2]
+
+    return MeshEdges(vertices, borders, sharp_edges)
+
+
+def find_faces_of_edges(mesh):
     faces = mesh.faces[:, :, np.newaxis]
     rolled_faces = np.roll(faces, 1, axis=1)
     edges = np.dstack((faces, rolled_faces))
@@ -125,33 +157,3 @@ def _calc_faces_of_edges(mesh):
     result_faces = mesh.faces[np.array(edge_faces.values())]
     result_faces = tuple(f.reshape(-1, 3) for f in np.hsplit(result_faces, 2))
     return result_edges, result_faces
-
-
-def _are_front(triangles):
-    return np.linalg.det(triangles) > 0
-
-
-def _calc_normals(triangles):
-    points = [p.reshape(-1, 3) for p in np.hsplit(triangles, 3)]
-    normals = np.cross(points[1] - points[0], points[2] - points[0])
-    norms = np.repeat(np.linalg.norm(normals, axis=1), 3).reshape(-1, 3)
-    return normals / norms
-
-
-def detect_mesh_edges(scene, image_size):
-    vertices = _get_projected_vertices(scene, image_size)
-
-    edges, faces = _calc_faces_of_edges(scene.mesh)
-    front_masks = [_are_front(vertices[f]) for f in faces]
-
-    borders = edges[front_masks[0] != front_masks[1]]
-
-    front_masks_and = front_masks[0] & front_masks[1]
-    edges = edges[front_masks_and]
-    faces = [f[front_masks_and] for f in faces]
-    normals = [_calc_normals(scene.mesh.vertices[f]) for f in faces]
-    angles = np.arccos((normals[0] * normals[1]).sum(axis=1))
-    sharp_edges = edges[angles >= np.pi / 2]
-
-    vertices = vertices[:, :-1]
-    return MeshEdges(vertices, borders, sharp_edges)
