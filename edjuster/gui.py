@@ -44,6 +44,8 @@ class Drawer(QtOpenGL.QGLWidget):
         self._scene = scene
         self._integral_calculator = integral_calculator
         self._model_queue = model_queue
+        self._mesh_edges = None
+        self._gradients = None
         self._process_model_update()
 
     def timerEvent(self, _):
@@ -99,7 +101,7 @@ class Drawer(QtOpenGL.QGLWidget):
 
     def _process_model_update(self):
         model = self._scene.model
-        mesh_edges, points, gradients, normals = \
+        mesh_edges, points, gradients, _ = \
             self._integral_calculator.calc_gradients_and_normals(model)
         self._mesh_edges = mesh_edges
         image_size = (self._image.height(), self._image.width())
