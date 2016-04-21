@@ -12,7 +12,7 @@ from scipy.ndimage import imread
 
 from geometry import load_mesh, Scene, Position
 from gui import run_gui
-from optimization import optimize_model
+from optimization import IntegralCalculator, optimize_model
 
 
 def load_file(folder, filename, hint, loader):
@@ -38,16 +38,17 @@ def load_input(input_folder):
     view = load_file(input_folder, 'view.txt', 'view matrix', np.loadtxt)
     view = Position(view.flatten())
 
-    return rgb, gray, Scene(mesh, model, view, proj)
+    return rgb, gray / 255.0, Scene(mesh, model, view, proj)
 
 
-def run_optimization(image, scene, model_queue):
+def run_optimization(model, integral_calculator, model_queue):
 
     def process_step(vector6, _, accepted):
         if accepted:
             model_queue.put(Position(vector6))
 
-    optimized_model = optimize_model(image / 255.0, scene, process_step, True)
+    optimized_model = optimize_model(model, integral_calculator,
+                                     process_step, True)
     model_queue.put(optimized_model)
 
     print
@@ -62,11 +63,13 @@ def edjust(ctx, input_folder):
     """Adjust pose of 3D object"""
 
     rgb, gray, scene = load_input(input_folder)
+    integral_calculator = IntegralCalculator(gray, scene)
     model_queue = SimpleQueue()
     process = Process(target=run_optimization,
-                      args=(gray, scene, model_queue))
+                      args=(scene.model, integral_calculator, model_queue))
     process.start()
-    exit_code = run_gui(sys.argv[:1], rgb, scene, model_queue)
+    exit_code = run_gui(sys.argv[:1], rgb, scene, integral_calculator,
+                        model_queue)
     process.terminate()
     ctx.exit(exit_code)
 

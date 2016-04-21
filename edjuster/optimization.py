@@ -44,6 +44,14 @@ class IntegralCalculator(object):
         self._mesh_edge_detector = MeshEdgeDetector(scene.mesh)
 
     def __call__(self, position):
+        _, _, gradients, normals = self.calc_gradients_and_normals(position)
+
+        integral = ((normals * gradients).sum(axis=1)**2).sum()
+        integral /= normals.shape[0]
+
+        return integral
+
+    def calc_gradients_and_normals(self, position):
         scene = self._scene._replace(model=position)
         mesh_edges = self._mesh_edge_detector(
             scene.proj.dot(scene.view.matrix.dot(scene.model.matrix)),
@@ -58,10 +66,8 @@ class IntegralCalculator(object):
 
         normals = IntegralCalculator._calc_normals(lines)
         gradients = self._gradient[points]
-        integral = ((normals * gradients).sum(axis=1)**2).sum()
-        integral /= normals.shape[0]
 
-        return integral
+        return mesh_edges, points, gradients, normals
 
     def _select_points(self, lines):
         lengths = np.linalg.norm(lines[:, 1] - lines[:, 0], axis=1)
@@ -111,9 +117,7 @@ class Walker(object):
         return vector + self.step_vector * random_vector * self.stepsize
 
 
-def optimize_model(image, scene, step_callback, echo):
-    integral_calculator = IntegralCalculator(image, scene, 100)
-
+def optimize_model(model, integral_calculator, step_callback, echo):
     walker = Walker(
         np.array([0.02, 0.02, 0.02, 5, 5, 5]),
         0.5
@@ -121,7 +125,7 @@ def optimize_model(image, scene, step_callback, echo):
 
     basinhopping_result = basinhopping(
         lambda x: 1 - integral_calculator(Position(x)),
-        scene.model.vector6,
+        model.vector6,
         niter=300,
         T=0.01,
         minimizer_kwargs={'method': 'SLSQP'},
