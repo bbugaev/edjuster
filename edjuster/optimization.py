@@ -130,16 +130,23 @@ class Walker(object):
 
 def optimize_model(model, integral_calculator, step_callback, echo):
     walker = Walker(
-        np.array([0.02, 0.02, 0.02, 5, 5, 5]),
+        np.array([5, 5, 5, 1, 1, 1]),
         0.5
     )
-
+    minimizer_kwargs = {
+        'method': 'SLSQP',
+        'tol': 0.00001,
+        'options': {
+            'maxiter': 50,
+            'disp': echo
+        }
+    }
     basinhopping_result = basinhopping(
-        lambda x: 1 - integral_calculator(Position(x)),
+        lambda x: 10 - 1000 * integral_calculator(Position(x)),
         model.vector6,
-        niter=300,
-        T=0.01,
-        minimizer_kwargs={'method': 'SLSQP'},
+        niter=100,
+        T=0.5,
+        minimizer_kwargs=minimizer_kwargs,
         take_step=walker,
         callback=step_callback,
         disp=echo
