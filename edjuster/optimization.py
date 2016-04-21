@@ -1,7 +1,7 @@
 import itertools as itt
 
 import numpy as np
-from scipy.ndimage import convolve
+from scipy.ndimage import convolve, sobel
 from scipy.interpolate import RectBivariateSpline
 from scipy.optimize import basinhopping
 
@@ -9,15 +9,26 @@ from geometry import MeshEdgeDetector, Position
 
 
 class Gradient(object):
+    SCHARR = 'Scharr'
+    SOBEL = 'Sobel'
+
     SCHARR_KERNEL_X = np.array([[3, 0, -3], [10, 0, -10], [3, 0, -3]]) / 32.0
     SCHARR_KERNEL_Y = np.array([[3, 10, 3], [0, 0, 0], [-3, -10, -3]]) / 32.0
 
-    def __init__(self, image):
+    def __init__(self, image, method=SOBEL):
+        if method not in (Gradient.SCHARR, Gradient.SOBEL):
+            raise ValueError(
+                'Invalid method (use Gradient.SCHARR or Gradient.SOBEL)'
+            )
         image = np.flipud(image)
         x_indices = np.arange(image.shape[1])
         y_indices = np.arange(image.shape[0])
-        x_deriv = convolve(image, Gradient.SCHARR_KERNEL_X)
-        y_deriv = convolve(image, Gradient.SCHARR_KERNEL_Y)
+        if method == Gradient.SCHARR:
+            x_deriv = convolve(image, Gradient.SCHARR_KERNEL_X)
+            y_deriv = convolve(image, Gradient.SCHARR_KERNEL_Y)
+        else:
+            x_deriv = sobel(image, axis=1) / 8.0
+            y_deriv = sobel(image, axis=0) / 8.0
         self._x_deriv = RectBivariateSpline(y_indices, x_indices, x_deriv)
         self._y_deriv = RectBivariateSpline(y_indices, x_indices, y_deriv)
 
