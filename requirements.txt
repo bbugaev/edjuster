@@ -1,4 +1,5 @@
 click
+matplotlib
 numpy
 Pillow
 prospector
