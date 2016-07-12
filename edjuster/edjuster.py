@@ -1,35 +1,30 @@
 #! /usr/bin/env python2
 
-from functools import partial
-import os.path as path
+from multiprocessing import Process
+from multiprocessing.queues import SimpleQueue
 import sys
 
 import click
-import numpy as np
-from scipy.ndimage import imread
 
-from geometry import detect_mesh_edges, load_mesh, Scene
+from geometry import Position
 from gui import run_gui
-from optimization import approximate_edge_integral
+from optimization import IntegralCalculator, optimize_model
+from reading import read_input
 
 
-def load_file(folder, filename, hint, loader):
-    filename = path.join(folder, filename)
-    try:
-        result = loader(filename)
-    except IOError:
-        raise click.FileError(filename, hint)
-    return result
+def run_optimization(model, integral_calculator, model_queue):
 
+    def process_step(vector6, _, accepted):
+        if accepted:
+            model_queue.put(Position(vector6))
 
-def load_input(input_folder):
-    image = load_file(input_folder, 'image.png', '3D object image',
-                      partial(imread, mode='L'))
-    mesh = load_file(input_folder, 'mesh.obj', '3D object', load_mesh)
-    model = load_file(input_folder, 'model.txt', 'model matrix', np.loadtxt)
-    view = load_file(input_folder, 'view.txt', 'view matrix', np.loadtxt)
-    proj = load_file(input_folder, 'proj.txt', 'proj matrix', np.loadtxt)
-    return image, Scene(mesh, model, view, proj)
+    optimized_model = optimize_model(model, integral_calculator,
+                                     process_step, True)
+    model_queue.put(optimized_model)
+
+    print
+    print 'result translation: ', optimized_model.translation
+    print 'result rotation: ', optimized_model.deg_rotation
 
 
 @click.command()
@@ -38,17 +33,16 @@ def load_input(input_folder):
 def edjust(ctx, input_folder):
     """Adjust pose of 3D object"""
 
-    image, scene = load_input(input_folder)
-    mesh_edges = detect_mesh_edges(scene, image.shape)
-
-    integral, points = approximate_edge_integral(
-        image / 255.0,
-        mesh_edges,
-        100
-    )
-
-    click.echo(integral)
-    ctx.exit(run_gui(sys.argv[:1], image, scene, mesh_edges, points))
+    rgb, gray, scene = read_input(input_folder)
+    integral_calculator = IntegralCalculator(gray, scene)
+    model_queue = SimpleQueue()
+    process = Process(target=run_optimization,
+                      args=(scene.model, integral_calculator, model_queue))
+    process.start()
+    exit_code = run_gui(sys.argv[:1], rgb, scene, integral_calculator,
+                        model_queue)
+    process.terminate()
+    ctx.exit(exit_code)
 
 
 if __name__ == '__main__':

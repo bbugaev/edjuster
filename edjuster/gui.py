@@ -1,3 +1,5 @@
+import itertools as itt
+
 import numpy as np
 from PySide import QtCore, QtGui, QtOpenGL
 from OpenGL import GL
@@ -24,21 +26,37 @@ def _create_texture_qimage(image):
 
 
 class Drawer(QtOpenGL.QGLWidget):
-    WIREFRAME_COLOR = np.array([0.0, 1.0, 0.0])
-    BORDER_COLOR = np.array([1.0, 0.0, 1.0])
-    SHARP_EDGE_COLOR = np.array([1.0, 1.0, 0.0])
-    POINT_COLOR = np.array([1.0, 0, 0])
+    WIREFRAME_COLOR = np.array([0.0, 1.0, 0.0, 0.1])
+    BORDER_COLOR = np.array([1.0, 0.0, 1.0, 0.5])
+    SHARP_EDGE_COLOR = np.array([1.0, 1.0, 0.0, 0.5])
+    GRADIENT_COLOR = np.array([1.0, 0, 0, 0.5])
+    GRADIENT_SCALE = 100
 
-    def __init__(self, image, scene, mesh_edges, points):
+    def __init__(self, image, scene, integral_calculator, model_queue):
         QtOpenGL.QGLWidget.__init__(self)
         self.setWindowTitle(self.tr(WINDOW_TITLE))
+
+        self.startTimer(1000 / 25)
 
         self._call_list = []
         self._texture_id = 0
         self._image = _create_texture_qimage(image)
         self._scene = scene
-        self._mesh_edges = mesh_edges
-        self._points = convert_from_format(points, image.shape)
+        self._integral_calculator = integral_calculator
+        self._model_queue = model_queue
+        self._mesh_edges = None
+        self._gradients = None
+        self._process_model_update()
+
+    def timerEvent(self, _):
+        new_model = None
+        while not self._model_queue.empty():
+            new_model = self._model_queue.get()
+        if not new_model:
+            return
+        self._scene = self._scene._replace(model=new_model)
+        self._process_model_update()
+        self.update()
 
     def initializeGL(self):
         Drawer._load_ortho()
@@ -79,13 +97,25 @@ class Drawer(QtOpenGL.QGLWidget):
         self._draw_edges(self._mesh_edges.sharp_edges, Drawer.SHARP_EDGE_COLOR)
         Drawer._pop_matrices()
 
-        self._draw_points()
+        self._draw_gradients()
+
+    def _process_model_update(self):
+        model = self._scene.model
+        mesh_edges, points, gradients, _ = \
+            self._integral_calculator.calc_gradients_and_normals(model)
+        self._mesh_edges = mesh_edges
+        image_size = (self._image.height(), self._image.width())
+        self._gradients = (
+            convert_from_format(points, image_size),
+            convert_from_format(points + gradients * Drawer.GRADIENT_SCALE,
+                                image_size)
+        )
 
     def _load_scene_matrices(self):
         GL.glMatrixMode(GL.GL_PROJECTION)
         GL.glLoadMatrixd(self._scene.proj.T)
         GL.glMatrixMode(GL.GL_MODELVIEW)
-        model_view = self._scene.view.dot(self._scene.model).T
+        model_view = self._scene.view.matrix.dot(self._scene.model.matrix).T
         GL.glLoadMatrixd(model_view)
 
     def _draw_image(self):
@@ -106,7 +136,7 @@ class Drawer(QtOpenGL.QGLWidget):
 
         GL.glDepthMask(GL.GL_FALSE)
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
-        GL.glColor3dv(Drawer.WIREFRAME_COLOR)
+        GL.glColor4dv(Drawer.WIREFRAME_COLOR)
         GL.glCallList(self._call_list)
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
         GL.glDepthMask(GL.GL_TRUE)
@@ -115,19 +145,19 @@ class Drawer(QtOpenGL.QGLWidget):
         GL.glDisable(GL.GL_CULL_FACE)
 
     def _draw_edges(self, edges, color):
-        GL.glColor3dv(color)
+        GL.glColor4dv(color)
         GL.glBegin(GL.GL_LINES)
         for line in edges:
             for vertex in self._scene.mesh.vertices[line]:
                 GL.glVertex3dv(vertex)
         GL.glEnd()
 
-    def _draw_points(self):
-        GL.glColor3dv(Drawer.POINT_COLOR)
-        GL.glPointSize(5)
-        GL.glBegin(GL.GL_POINTS)
-        for point in self._points:
-            GL.glVertex2dv(point)
+    def _draw_gradients(self):
+        GL.glColor4dv(Drawer.GRADIENT_COLOR)
+        GL.glBegin(GL.GL_LINES)
+        for begin, end in itt.izip(*self._gradients):
+            GL.glVertex2dv(begin)
+            GL.glVertex2dv(end)
         GL.glEnd()
 
     def _init_call_list(self):
@@ -165,7 +195,7 @@ class Drawer(QtOpenGL.QGLWidget):
         GL.glPopMatrix()
 
 
-def run_gui(argv, image, scene, mesh_edges, points):
+def run_gui(argv, image, scene, integral_calculator, model_queue):
     app = QtGui.QApplication(argv)
 
     if not QtOpenGL.QGLFormat.hasOpenGL():
@@ -173,7 +203,7 @@ def run_gui(argv, image, scene, mesh_edges, points):
                                    'This system does not support OpenGL')
         return 1
 
-    window = Drawer(image, scene, mesh_edges, points)
+    window = Drawer(image, scene, integral_calculator, model_queue)
     window.resize(800, 600)
     window.show()
 
