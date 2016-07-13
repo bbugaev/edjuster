@@ -54,7 +54,7 @@ class IntegralCalculator(object):
     def __call__(self, position):
         _, _, gradients, normals = self.calc_gradients_and_normals(position)
 
-        integral = ((normals * gradients).sum(axis=1)**2).sum()
+        integral = np.abs((normals * gradients).sum(axis=1)).sum()
         integral /= normals.shape[0]
 
         return integral
@@ -137,9 +137,9 @@ def optimize_model(model, integral_calculator, step_callback, echo):
         }
     }
     basinhopping_result = basinhopping(
-        lambda x: 10 - 1000 * integral_calculator(Position(x)),
+        lambda x: 10 - 10 * integral_calculator(Position(x)),
         model.vector6,
-        niter=100,
+        niter=50,
         T=0.5,
         minimizer_kwargs=minimizer_kwargs,
         take_step=walker,
