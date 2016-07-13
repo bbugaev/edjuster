@@ -1,5 +1,3 @@
-import itertools as itt
-
 import numpy as np
 from scipy.ndimage import convolve, sobel
 from scipy.interpolate import RectBivariateSpline
