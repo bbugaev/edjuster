@@ -34,7 +34,8 @@ def edjust(ctx, input_folder):
     """Adjust pose of 3D object"""
 
     rgb, gray, scene = read_input(input_folder)
-    integral_calculator = IntegralCalculator(gray, scene)
+    integral_calculator = IntegralCalculator(gray, scene,
+                                             normalized_gradient=True)
     model_queue = SimpleQueue()
     process = Process(target=run_optimization,
                       args=(scene.model, integral_calculator, model_queue))

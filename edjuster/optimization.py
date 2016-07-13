@@ -13,20 +13,33 @@ class Gradient(object):
     SCHARR_KERNEL_X = np.array([[3, 0, -3], [10, 0, -10], [3, 0, -3]]) / 32.0
     SCHARR_KERNEL_Y = np.array([[3, 10, 3], [0, 0, 0], [-3, -10, -3]]) / 32.0
 
-    def __init__(self, image, method=SOBEL):
+    def __init__(self, image, method=SOBEL, normalized=False):
         if method not in (Gradient.SCHARR, Gradient.SOBEL):
             raise ValueError(
                 'Invalid method (use Gradient.SCHARR or Gradient.SOBEL)'
             )
+
         image = np.flipud(image)
-        x_indices = np.arange(image.shape[1])
-        y_indices = np.arange(image.shape[0])
+
         if method == Gradient.SCHARR:
             x_deriv = convolve(image, Gradient.SCHARR_KERNEL_X)
             y_deriv = convolve(image, Gradient.SCHARR_KERNEL_Y)
         else:
             x_deriv = sobel(image, axis=1) / 8.0
             y_deriv = sobel(image, axis=0) / 8.0
+
+        if normalized:
+            magnitude = np.hypot(x_deriv, y_deriv)
+            min_magnitude = magnitude.min()
+            max_magnitude_diff = magnitude.max() - min_magnitude
+            if min_magnitude > 0:
+                x_deriv -= min_magnitude * x_deriv / magnitude
+                y_deriv -= min_magnitude * y_deriv / magnitude
+            x_deriv /= max_magnitude_diff
+            y_deriv /= max_magnitude_diff
+
+        x_indices = np.arange(image.shape[1])
+        y_indices = np.arange(image.shape[0])
         self._x_deriv = RectBivariateSpline(y_indices, x_indices, x_deriv)
         self._y_deriv = RectBivariateSpline(y_indices, x_indices, y_deriv)
 
@@ -43,12 +56,13 @@ class Gradient(object):
 
 class IntegralCalculator(object):
 
-    def __init__(self, image, scene, points_per_pixel=0.3):
+    def __init__(self, image, scene, points_per_pixel=0.3,
+                 normalized_gradient=False):
         self._image_size = image.shape
         self._scene = scene
         self._points_per_pixel = points_per_pixel
 
-        self._gradient = Gradient(image)
+        self._gradient = Gradient(image, normalized=normalized_gradient)
         self._mesh_edge_detector = MeshEdgeDetector(scene.mesh)
 
     def __call__(self, position):
