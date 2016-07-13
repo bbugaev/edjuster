@@ -44,12 +44,11 @@ class Gradient(object):
 
 
 class IntegralCalculator(object):
-    DEFAULT_POINT_COUNT = 1000
 
-    def __init__(self, image, scene, point_count=DEFAULT_POINT_COUNT):
+    def __init__(self, image, scene, points_per_pixel=0.3):
         self._image_size = image.shape
         self._scene = scene
-        self._point_count = point_count
+        self._points_per_pixel = points_per_pixel
 
         self._gradient = Gradient(image)
         self._mesh_edge_detector = MeshEdgeDetector(scene.mesh)
@@ -81,27 +80,25 @@ class IntegralCalculator(object):
         return mesh_edges, points, gradients, normals
 
     def _select_points(self, lines):
-        lengths = np.linalg.norm(lines[:, 1] - lines[:, 0], axis=1)
-        total_length = lengths.sum()
-        step = total_length / (self._point_count + 1)
+        line_count = lines.shape[0]
+        begin_points = lines[:, 0]
+        directions = lines[:, 1] - begin_points
 
-        points = []
-        line_indices = []
-        current_length = step
-        prefix_length = 0
+        lengths = np.linalg.norm(directions, axis=1)
+        point_counts = np.rint(lengths * self._points_per_pixel)
+        point_counts = point_counts.astype(np.int64, copy=False)
+        point_counts[point_counts == 0] = 1
+        line_indices = np.repeat(np.arange(line_count), point_counts)
 
-        for i, length, line in itt.izip(itt.count(), lengths, lines):
-            while current_length <= prefix_length + length:
-                point_coef = (current_length - prefix_length) / length
-                points.append(line[0] + (line[1] - line[0]) * point_coef)
-                line_indices.append(i)
-                current_length += step
-            prefix_length += length
+        steps = np.ones(line_count) / point_counts
+        coefs = np.cumsum(np.repeat(steps, point_counts))
+        begin_indices = np.cumsum(point_counts) - point_counts
+        coefs -= np.repeat(coefs[begin_indices], point_counts)
+        coefs += np.repeat(steps / 2, point_counts)
+        coefs = np.repeat(coefs.reshape((-1, 1)), 2, axis=1)
+        points = begin_points[line_indices] + directions[line_indices] * coefs
 
-        return self._clip(
-            np.array(points[:self._point_count]),
-            np.array(line_indices[:self._point_count])
-        )
+        return points, line_indices
 
     def _clip(self, points, line_indices):
         mask = (points >= (0, 0)) & (points < self._image_size[::-1])
