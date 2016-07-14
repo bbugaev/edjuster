@@ -13,19 +13,29 @@ from optimization import IntegralCalculator
 @click.argument('input_folder', type=click.Path(exists=True, file_okay=False))
 def plot(input_folder):
     _, gray, scene = read_input(input_folder)
-    integral_calculator = IntegralCalculator(gray, scene)
+    integral_calculator = IntegralCalculator(gray, scene,
+                                             normalized_gradient=True)
 
-    center = scene.model.vector6
-    point_count = 300
-    axis = 4
-    delta = 10
+    center_point = scene.model.vector6
+    point_count = 200
+    deltas = [20] * 3 + [30] * 3
+    x_labels = [r'$x$', r'$y$', r'$z$', r'$\alpha$', r'$\beta$', r'$\gamma$']
 
-    points = np.tile(center, (point_count, 1))
-    points[:, axis] = np.linspace(center[axis] - delta, center[axis] + delta,
-                                  point_count)
-    values = np.array([integral_calculator(Position(p)) for p in points])
+    for axis in xrange(6):
+        points = np.tile(center_point, (point_count, 1))
+        limits = (center_point[axis] - deltas[axis],
+                  center_point[axis] + deltas[axis])
+        points[:, axis] = np.linspace(limits[0], limits[1], point_count)
+        values = np.array([integral_calculator(Position(p)) for p in points])
 
-    plt.plot(points[:, axis], values)
+        plt.subplot(231 + axis)
+        plt.xlabel(x_labels[axis], fontsize='x-large')
+        plt.grid(True)
+        plt.xlim(*limits)
+        plt.gca().xaxis.set_major_locator(plt.LinearLocator(3))
+        plt.plot(points[:, axis], values)
+
+    plt.tight_layout(pad=0.1, w_pad=0.1, h_pad=0.1)
     plt.show()
 
 
