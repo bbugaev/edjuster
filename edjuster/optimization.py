@@ -3,7 +3,7 @@ from scipy.ndimage import convolve, sobel
 from scipy.interpolate import RectBivariateSpline
 from scipy.optimize import basinhopping
 
-from geometry import MeshEdgeDetector, Position
+from geometry import calc_bbox, MeshEdgeDetector, Position
 
 
 class Gradient(object):
@@ -137,11 +137,29 @@ class Walker(object):
         return vector + self.step_vector * random_vector * self.stepsize
 
 
+class Guard(object):
+
+    def __init__(self, initial_pose, t_limit, r_limit):
+        vector = initial_pose.vector6
+        diff = np.array([t_limit] * 3 + [r_limit] * 3)
+        self._min_pose = vector - diff
+        self._max_pose = vector + diff
+
+    def __call__(self, f_new, x_new, f_old, x_old):
+        ok = ((x_new >= self._min_pose) & (x_new <= self._max_pose)).all()
+        return bool(ok)
+
+
 def optimize_model(model, integral_calculator, step_callback, echo):
+    bbox = calc_bbox(integral_calculator._scene.mesh)
+    t_limit = 0.1 * max(bbox[i + 1] - bbox[i] for i in xrange(0, 6, 2))
+    r_limit = 22.5
+    guard = Guard(model, t_limit, r_limit)
     walker = Walker(
-        np.array([5, 5, 5, 1, 1, 1]),
+        np.array([0.2 * t_limit] * 3 + [0.2 * r_limit] * 3),
         0.5
     )
+
     minimizer_kwargs = {
         'method': 'SLSQP',
         'tol': 0.00001,
@@ -150,14 +168,17 @@ def optimize_model(model, integral_calculator, step_callback, echo):
             'disp': echo
         }
     }
+
     basinhopping_result = basinhopping(
         lambda x: 10 - 10 * integral_calculator(Position(x)),
         model.vector6,
         niter=50,
-        T=0.5,
+        T=0.1,
         minimizer_kwargs=minimizer_kwargs,
         take_step=walker,
+        accept_test=guard,
         callback=step_callback,
+        interval=10,
         disp=echo
     )
 

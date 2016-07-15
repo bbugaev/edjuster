@@ -8,6 +8,8 @@ from pyassimp.postprocess import aiProcess_Triangulate
 
 Mesh = namedtuple('Mesh', ('vertices', 'faces'))
 Scene = namedtuple('Scene', ('mesh', 'model', 'view', 'proj'))
+BBox = namedtuple('BBox',
+                  ('x_min', 'x_max', 'y_min', 'y_max', 'z_min', 'z_max'))
 
 
 class Position(object):
@@ -82,6 +84,15 @@ def load_mesh(filename):
     pyassimp.release(scene)
 
     return Mesh(vertices, faces)
+
+
+def calc_bbox(mesh):
+    x_coords = mesh.vertices[:, 0]
+    y_coords = mesh.vertices[:, 1]
+    z_coords = mesh.vertices[:, 2]
+    return BBox(x_coords.min(), x_coords.max(),
+                y_coords.min(), y_coords.max(),
+                z_coords.min(), z_coords.max())
 
 
 def convert_to_format(points, image_size):
