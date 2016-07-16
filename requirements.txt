@@ -1,4 +1,5 @@
 click
+cython
 matplotlib
 numpy
 Pillow
@@ -7,3 +8,4 @@ pyassimp
 PyOpenGL
 PySide
 scipy
+scikit-image
