@@ -152,8 +152,10 @@ class Guard(object):
 
 def optimize_model(model, integral_calculator, step_callback, echo):
     bbox = calc_bbox(integral_calculator._scene.mesh)
+    bbox_size = max(bbox[i + 1] - bbox[i] for i in xrange(0, 6, 2))
     t_limit = 0.1 * max(bbox[i + 1] - bbox[i] for i in xrange(0, 6, 2))
     r_limit = 22.5
+
     guard = Guard(model, t_limit, r_limit)
     walker = Walker(
         np.array([0.2 * t_limit] * 3 + [0.2 * r_limit] * 3),
@@ -170,7 +172,7 @@ def optimize_model(model, integral_calculator, step_callback, echo):
     }
 
     basinhopping_result = basinhopping(
-        lambda x: 10 - 10 * integral_calculator(Position(x)),
+        lambda x: bbox_size * (1 - integral_calculator(Position(x))),
         model.vector6,
         niter=50,
         T=0.1,
