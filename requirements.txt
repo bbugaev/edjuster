@@ -1,4 +1,6 @@
 click
+cython
+matplotlib
 numpy
 Pillow
 prospector
@@ -6,3 +8,4 @@ pyassimp
 PyOpenGL
 PySide
 scipy
+scikit-image
